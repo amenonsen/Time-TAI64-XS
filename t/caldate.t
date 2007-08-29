@@ -1,71 +1,56 @@
 use strict;
 use warnings;
-use Test::More tests => 20;
-use Data::Dumper;
-BEGIN
-{
-	use_ok('Time::TAI64');
-}
-
-# caldate_fmt
-{
-		is caldate_fmt(2002,6,4) => '2002-06-04', 'Formatted positive date';
-		is caldate_fmt(-2002,0,2) => '-2002-00-02', 'Formatted negative date';
-		my $r = caldate_fmt('foo',0,2);
-		ok ((not defined $r), 'Erroneous input correctly generated error');
-		ok ((defined $Time::TAI64::ERROR and length $Time::TAI64::ERROR), 'It did indeedy');
-		is caldate_fmt([2002, 7, 8]) => '2002-07-08', 'Formatted with arrayref input';
-}
-
-# caldate_scan
-{ 
-		my @parsed = caldate_scan('2002-07-08');
-		ok ( eq_array(\@parsed, [2002,7,8]), 'Parsing into array worked');
-		my $parsed = caldate_scan('2005-12-01');
-		ok ( eq_array($parsed, [2005, 12, 1]), 'Parsing into arrayref worked');
-}
-
-# caldate_mjd
-{
-		use Time::Piece;
-		my %mjd_dates = (
-				0 => [ 1858, 11, 17 ],
-				51604 => [ 2000, 3, 1 ],
-				52345 => [ 2002, 3, 12 ],
-		);
-		foreach my $result (sort keys %mjd_dates)
-		{
-				my $mjd = caldate_mjd($mjd_dates{$result});
-				is $mjd => $result, "mjd: Test for $result worked.";
-				my $tp = Time::Piece->strptime(join(' ', @{$mjd_dates{$result}},0,0,0), '%Y %m %d %H %M %S');
-				#is $mjd => $tp->mjd, "mjd vs TP for $result worked.";
-				my @back = caldate_frommjd($result);
-				ok(eq_array(\@back, $mjd_dates{$result}), "frommjd worked for $result");
-		}
-}
+use Test::More tests => 11;
+BEGIN { use_ok 'Time::TAI64', qw( :caldate ) }
 
 {
-	my @easters = (
-		[ 2001, 4, 15 ],
-		[ 2002, 3, 31 ],
-		[ 2003, 4, 20 ],
-	);
- 
-	foreach my $date (@easters)
-	{
-		ok(eq_array($date => [caldate_easter($date->[0])]), "Easter for $date->[0]");
-	}
+    # Create a caldate
+    my $cd = caldate_new(1982, 5, 6);
+    isa_ok($cd => 'CaldatePtr');
+
+    # Format a caldate
+    my $s = caldate_fmt($cd);
+    is ($s => '1982-05-06' => 'caldate_fmt');
+
+    # Parse an ISO date
+    my $dcd = caldate_scan($s);
+    my $v = caldate_fmt($dcd);
+    is ($v => $s, "caldate_fmt(caldate_scan(caldate_fmt(x))) equal");
 }
 
-# caldate_normalise
+# MJD
 {
-	my @input = (
-		[[2002, 6, 2], [2002, 6, 2]],
-		[[2002, 3, 32],[2002, 4, 1]],
-		[[2002, 13, 32],[2003, 2, 1]],
-	);
-	foreach my $pair (@input)
-	{
-		ok(eq_array($pair->[1], [caldate_normalise(@{$pair->[0]})]), "Normalisation correct");
-	}
+    my $cd = caldate_new(2000, 3, 1);
+    my $mjd = caldate_mjd($cd);
+    is ($mjd => 51604 => 'caldate_mjd for 1 Mar 2000');
+    # Day number 0  is  17 November 1858.
+    # Day number 51604 is 1 March 2000.
+    my $newcd = caldate_frommjd(51604);
+    my $v = caldate_fmt($newcd);
+    my $s = caldate_fmt($cd);
+    is ($v => $s, "caldate_frommjd()");
+}
+
+# Normalise
+{
+    my $cd = caldate_new(2000, 3, 33);
+    my $newcd = caldate_normalize($cd);
+    my $v = caldate_fmt($newcd);
+    is ($v => '2000-04-02', "caldate_normalise()");
+}
+
+# Easter
+{
+    my $cd = caldate_new(2000, 1, 1);
+    my $easter = caldate_easter($cd);
+    my $v = caldate_fmt($easter);
+    is ($v => '2000-04-23', "caldate_easter()");
+}
+
+# Accessors
+{
+    my $cd = caldate_new(2003, 7, 5);
+    is ( caldate_day($cd) => 5 => 'caldate_day');
+    is ( caldate_month($cd) => 7 => 'caldate_month');
+    is ( caldate_year($cd) => 2003 => 'caldate_year');
 }

@@ -1,0 +1,25 @@
+tai64n2tai(1)                                       tai64n2tai(1)
+
+
+
+NNAAMMEE
+       tai64n2tai - convert TAI64N timestamps to TAI
+
+SSYYNNOOPPSSIISS
+       ttaaii6644nn22ttaaii
+
+DDEESSCCRRIIPPTTIIOONN
+       ttaaii6644nn22ttaaii  reads  lines  from  standard input.  If a line
+       does not begin with a TAI64N label, ttaaii6644nn22ttaaii  writes  it
+       out  without  change.   Otherwise, ttaaii6644nn22ttaaii converts the
+       timestamp to TAI format,  and  writes  out  the  converted
+       timestamp  followed by the rest of the original line.  The
+       older TAI format is used by some older  programs  such  as
+       qmail-analog.
+
+SSEEEE AALLSSOO
+       multilog, qmail-analog, tai64n, tai64nlocal, tai2tai64n
+
+
+
+                                                    tai64n2tai(1)
