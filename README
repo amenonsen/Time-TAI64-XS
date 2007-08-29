@@ -1,0 +1,80 @@
+NAME
+    Time::TAI64 - support for Temps Atomique International
+
+SYNOPSIS
+        use Time::TAI64;
+   
+        printf "%4d-%02d-%02d %02d:%02d:%02d.%09d\n",
+            tai64nlocal('400000003c7c743a2121589c');
+
+DESCRIPTION
+    This module provides support for the hiresolution and somewhat long
+    lasting TAI time format. It's 64 bit and goes down to nanoseconds.
+    At least, the TAI64N format does while TAI64 just goes to seconds.
+
+    This module provides a routine to convert from TAI back to a usable
+    form. It will provide more functions as I get time to do things with
+    them.
+
+    It's in XS since the operation to perform the conversion is not one
+    of Perl's forte's and is really quite slow (well, my somewhat
+    straight conversion from C to Perl performed quite badly). Other
+    versions, including pure Perl, are provided in the benchmarks
+    directory in the module distribution.
+
+FUNCTIONS
+  my $str = caldate_fmt($year, $month, $day)
+    Given a year, month and day it returns an ISO formatted string
+    representation of that date.
+
+  my ($year, $month, $day) = caldate_scan($str)
+    Given an ISO formatted string, or a string started with an ISO
+    formatted date, ithis function returns the year, month and day. If
+    used within a scalar context, it returns an arrayref of the elements
+    (as a Time::TAI64::Caldate object).
+
+  my $mjd = caldate_mjd($year, $month, $day)
+    Returns the Modified Julian Day for the given date.
+
+  my ($year, $month, $day) = caldate_frommjd($mjd)
+    Returns the year, month, day triple fo the given Modified Julian
+    Day.
+
+  ($year, $month, $day) = caldate_normalise($year, $month, $day)
+    Normalises the values of year, month and day so that they are within
+    their accepted ranges.
+
+  my ($year,$month,$day) = caldate_easter($year)
+    Returns the full date of Easter Sunday for the given year.
+
+  my ($secs, $nano) = tai64n($time)
+    Takes a 24 hex-digit number as input and returns the seconds and
+    nanoseconds the time represents. Seconds are standard Unix style.
+
+  my @time = tai64nlocal($time)
+    Takes a 24 hex-digit number as input and returns the year, month,
+    day, hour, min, sec and nanosecs that the number represents. All
+    numbers are normalised (i.e. it will return 1998, not 98; and
+    January is 1, not 0).
+
+AUTHOR
+    Iain Truskett <spoon@cpan.org> <http://eh.org/~koschei/>
+
+    Please report any bugs, or post any suggestions, to either the
+    mailing list at <cpan@dellah.anu.edu.au> (email
+    <cpan-subscribe@dellah.anu.edu.au> to subscribe) or directly to the
+    author at <spoon@cpan.org>
+
+COPYRIGHT
+    Copyright (c) 2002 Iain Truskett. All rights reserved. This program
+    is free software; you can redistribute it and/or modify it under the
+    same terms as Perl itself.
+
+        $Id: TAI64.pm,v 1.7 2002/03/12 17:54:57 koschei Exp $
+
+ACKNOWLEDGEMENTS
+    DJB for writing libtai.
+
+SEE ALSO
+    See <http://cr.yp.to/time.html>
+

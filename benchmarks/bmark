@@ -1,0 +1,6 @@
+#!/bin/sh
+
+time perl -d:DProf tai64nlocal-perl < testdata > /dev/null&&dprofpp
+time perl -d:DProf tai64nlocal-inline < testdata > /dev/null&&dprofpp
+time perl -d:DProf tai64nlocal-xs < testdata > /dev/null&&dprofpp
+time tai64nlocal < testdata > /dev/null

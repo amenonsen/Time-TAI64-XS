@@ -1,293 +1,287 @@
 package Time::TAI64;
 
-use 5.008;
-use strict;
-use warnings;
-use Carp;
-
 =head1 NAME
 
-Time::TAI64 - a library for storing and manipulating dates and times.
+Time::TAI64 - support for Temps Atomique International
 
 =head1 SYNOPSIS
 
-    use Time::TAI64 qw( :caldate :caltime :tai :leapsecs :taia );
-    use Time::TAI64 qw( :all );
-
-=cut
-
-require Exporter;
-use AutoLoader;
-
-our @ISA = qw(Exporter);
-
-our %EXPORT_TAGS = ( 
-    'caldate' => [qw/
-	caldate_new caldate_fmt caldate_scan caldate_mjd
-	caldate_frommjd caldate_normalize caldate_easter
-	caldate_day caldate_month caldate_year
-    / ],
-    'caltime' => [qw/
-	caltime_tai caltime_utc caltime_fmt caltime_scan
-	caltime_offset caltime_second caltime_minute
-	caltime_hour caltime_date
-    / ],
-    'tai' => [qw/
-	tai_now tai_approx tai_add tai_sub tai_less
-	tai_pack tai_unpack
-    / ],
-    'leapsecs' => [qw/
-	leapsecs_init leapsecs_read leapsecs_add leapsecs_sub
-    / ],
-    'taia' => [qw/
-	taia_tai taia_now taia_approx taia_frac taia_add taia_sub
-	taia_half taia_less taia_pack taia_unpack taia_fmtfrac
-    / ],
-);
-$EXPORT_TAGS{'all'} = [ map { (@{$_}) } values %EXPORT_TAGS ];
-
-our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
-
-our @EXPORT = ();
-
-our $VERSION = '1.8';
-
-sub AUTOLOAD {
-    # This AUTOLOAD is used to 'autoload' constants from the constant()
-    # XS function.
-
-    my $constname;
-    our $AUTOLOAD;
-    ($constname = $AUTOLOAD) =~ s/.*:://;
-    croak "&Time::TAI64::constant not defined" if $constname eq 'constant';
-    my ($error, $val) = constant($constname);
-    if ($error) { croak $error; }
-    {
-	no strict 'refs';
-	*$AUTOLOAD = sub { $val };
-    }
-    goto &$AUTOLOAD;
-}
-
-require XSLoader;
-XSLoader::load('Time::TAI64', $VERSION);
-
-1;
-__END__
+    use Time::TAI64;
+   
+    printf "%4d-%02d-%02d %02d:%02d:%02d.%09d\n",
+	tai64nlocal('400000003c7c743a2121589c');
 
 =head1 DESCRIPTION
 
-
-NOTE: THIS IS AN EXPERIMENTAL VERSION. THE USER INTERFACE B<WILL> CHANGE
-AND IT WILL CHANGE B<DRASTICALLY>. PLEASE WAIT UNTIL VERSION 1.9 BEFORE
-USING THIS MODULE.
-
-ALSO, A LOT OF THE CODE WILL CHANGE. SO, DON'T RELY ON ANYTHING IN THIS
-MODULE BEING THE SAME IN TWO WEEKS. OH, AND THE DOCUMENTATION WILL BE
-DRASTICALLY IMPROVED.
-
-THAT SAID, TEST FAILURES WOULD BE APPRECIATED =)
-
-
-Time::TAI64 is a library for storing and manipulating dates and times.
-
-Time::TAI64 supports two time scales:
-
-=over 4
-
-=item 1
-
-TAI64, covering a few hundred billion years with 1-second precision
-
-=item 2
-
-TAI64NA, covering the same period with 1-attosecond precision. Both
-scales are defined in terms of TAI, the current international real time
-standard.
-
-=back
-
-Time::TAI64 provides an internal format for TAI64, C<TAIPtr>, designed
-for fast time manipulations. The tai_pack() and tai_unpack() routines
-convert between struct tai and a portable 8-byte TAI64 storage format.
-Time::TAI64 provides similar internal and external formats for TAI64NA
-(C<TAIAPtr>).
-
-Time::TAI64 provides C<CaldatePtr> to store dates in year-month-day
-form. It can convert C<CaldatePtr>, under the Gregorian calendar, to a
-modified Julian day number for easy date arithmetic.
-
-Time::TAI64 provides C<CaltimePtr> to store calendar dates and times
-along with UTC offsets. It can convert from C<TAIPtr> to C<CaltimePtr>
-in UTC, accounting for leap seconds, for accurate date and time display.
-It can also convert back from C<CaltimePtr> to C<TAIPtr> for user input.
-Its overall UTC-to-TAI conversion speed is 100x better than the usual
-UNIX mktime() implementation.
-
-This version of Time::TAI64 requires a UNIX system with gettimeofday().
-It will be easy to port to other operating systems with compilers
-supporting 64-bit arithmetic.
-
-=head1 OBJECT ORIENTED INTERFACE
-
-The preferred way of using this library is through objects. You don't
-have to though since the complete complement of functions is available
-via various export groups. See the L<FUNCTIONS> section for more detail.
-
-XXX
-
-=head1 FUNCTIONS
-
-There's quite a few functions. 41 all up (unless I miscounted).
-This section is divided into the export groups.
-
-I will warn you, up front, that your code will end up over long if you
-stick to using functions. Each data object produced by this module that
-is not a simple integer or string is an opaque object and you will
-B<need> to use accessors to use its attributes. Thus, the OO interface
-is generally recommended.
-
-=head2 :caldate
-
-=over 4
-
-=item caldate_new
-
-=item caldate_fmt
-
-=item caldate_scan
-
-=item caldate_mjd
-
-=item caldate_frommjd
-
-=item caldate_normalize
-
-=item caldate_easter
-
-=item caldate_day
-
-=item caldate_month
-
-=item caldate_year
-
-=back
-
-=head2 :caltime
-
-=over 4
-
-=item caltime_tai
-
-=item caltime_utc
-
-=item caltime_fmt
-
-=item caltime_scan
-
-=item caltime_offset
-
-=item caltime_second
-
-=item caltime_minute
-
-=item caltime_hour
-
-=item caltime_date
-
-=back
-
-=head2 :tai
-
-=over 4
-
-=item tai_now
-
-=item tai_approx
-
-=item tai_add
-
-=item tai_sub
-
-=item tai_less
-
-=item tai_pack
-
-=item tai_unpack
-
-=back
-
-=head2 :leapsecs
-
-=over 4
-
-=item leapsecs_init
-
-=item leapsecs_read
-
-=item leapsecs_add
-
-=item leapsecs_sub
-
-=back
-
-=head2 :taia
-
-=over 4
-
-=item taia_tai
-
-=item taia_now
-
-=item taia_approx
-
-=item taia_frac
-
-=item taia_add
-
-=item taia_sub
-
-=item taia_half
-
-=item taia_less
-
-=item taia_pack
-
-=item taia_unpack
-
-=item taia_fmtfrac
-
-=back
+This module provides support for the hiresolution and somewhat long
+lasting TAI time format. It's 64 bit and goes down to nanoseconds. At
+least, the TAI64N format does while TAI64 just goes to seconds.
+
+This module provides a routine to convert from TAI back to a usable form.
+It will provide more functions as I get time to do things with them.
+
+It's in XS since the operation to perform the conversion is not one of
+Perl's forte's and is really quite slow (well, my somewhat straight
+conversion from C to Perl performed quite badly). Other versions,
+including pure Perl, are provided in the benchmarks directory in the
+module distribution.
 
 =cut
 
+require 5.006;
+use strict;
+use warnings;
+
+require Exporter;
+require DynaLoader;
+
+our @ISA = qw(Exporter DynaLoader);
+
+our %EXPORT_TAGS = ( );
+our @EXPORT_OK = ( );
+our @EXPORT = qw/
+    caldate_normalise caldate_easter caldate_scan caldate_fmt
+    caldate_mjd caldate_frommjd tai64n tai64nlocal
+/;
+our ( $VERSION ) = '$Revision: 1.7 $ ' =~ /\$Revision:\s+([^\s]+)/;
+our $ERROR;
+
+sub _fail
+{
+    $ERROR = shift;
+    return undef;
+}
+
+bootstrap Time::TAI64 $VERSION;
+
+=head1 FUNCTIONS
+
+=head2 my $str = caldate_fmt($year, $month, $day)
+
+Given a year, month and day it returns an ISO formatted string
+representation of that date.
+
+=cut
+
+sub caldate_fmt
+{
+    my ($year,$month,$day) = (ref($_[0]) =~ /^ARRAY$|Caldate/) ? @{$_[0]} : (@_);
+    $ERROR = '';
+    for ($year, $month, $day)
+    {
+	_fail("Invalid date") unless /^-?\d+$/;
+    }
+    return undef if defined $ERROR and length $ERROR;
+    return sprintf("%s%d-%02d-%02d", (($year < 0) ? "-" : ""),abs($year),$month,$day);
+}
+
+=head2 my ($year, $month, $day) = caldate_scan($str)
+
+Given an ISO formatted string, or a string started with an ISO formatted
+date, ithis function returns the year, month and day. If used within a
+scalar context, it returns an arrayref of the elements (as a
+Time::TAI64::Caldate object).
+
+=cut
+
+sub caldate_scan
+{
+    my $str = $_[0];
+    $ERROR = '';
+    if (defined $str and length $str and $str =~ /^(-?\d+)-0*(\d+)-0*(\d+)\b/)
+    {
+	return wantarray ? ($1,$2,$3) : (bless [$1, $2, $3], 'Time::TAI64::Caldate');
+    }
+    else
+    {
+	_fail("String does not have ISO date at start");
+	return 0;
+    }
+}
+
+=head2 my $mjd = caldate_mjd($year, $month, $day)
+
+Returns the Modified Julian Day for the given date.
+
+=cut
+
+sub caldate_mjd
+{
+    my ($year,$month,$day) = (ref($_[0]) =~ /^ARRAY$|Caldate/) ? @{$_[0]} : (@_);
+    $ERROR = '';
+    for ($year, $month, $day)
+    {
+	_fail("Invalid date") unless /^-?\d+$/;
+    }
+    return undef if defined $ERROR and length $ERROR;
+    # Valid stuff we can work with:
+    my $a = int((14-$month)/12);
+    my $y = $year +4800 - $a;
+    my $m = $month + 12*$a -3;
+    my $d = $day + int((153*$m+2)/5) + (365*$y)+int($y/4)+int($y/400)-int($y/100)-32045;
+    $d -= 2_400_001;
+    return $d;
+}
+
+=head2 my ($year, $month, $day) = caldate_frommjd($mjd)
+
+Returns the year, month, day triple fo the given Modified Julian Day.
+
+=cut
+
+sub caldate_frommjd
+{
+    my $mjd = shift;
+    if ($mjd =~ /^\d+$/)
+    {
+	my ($year, $month, $yday);
+	my $day = $mjd;
+	$year = int($day / 146097);
+	$day %= 146097;
+	$day += 678881;
+	while ($day >= 146097)
+	{
+	    $day -= 146097;
+	    $year++;
+	}
+	$year *= 4;
+	if ($day == 146096)
+	{
+	    $year += 3;
+	    $day = 36524;
+	}
+	else
+	{
+	    $year += int($day / 36524);
+	    $day %= 36524;
+	}
+	$year *= 25;
+	$year += int($day / 1461);
+	$day %= 1461;
+	$year *= 4;
+
+	$yday = ($day < 305);
+	if ($day == 1460)
+	{
+	    $year += 3;
+	    $day = 365;
+	}
+	else
+	{
+	    $year += int($day / 365);
+	    $day %= 365;
+	}
+	$yday += $day;
+
+	$day *= 10;
+	$month = int(($day + 5) / 306);
+	$day = ($day + 5) % 306;
+	$day = int($day / 10);
+	if ($month >= 10)
+	{
+	    $yday -= 306;
+	    ++$year;
+	    $month -= 10;
+	}
+	else
+	{
+	    $yday += 59;
+	    $month += 2;
+	}
+	return ($year, $month+1, $day+1);
+    }
+    else
+    {
+	_fail('Invalid modified Juloian Day');
+	return undef;
+    }
+}
+
+=head2 ($year, $month, $day) = caldate_normalise($year, $month, $day)
+
+Normalises the values of year, month and day so that they are within their accepted ranges.
+
+=cut
+
+sub caldate_normalise
+{
+    caldate_frommjd(caldate_mjd(@_));
+}
+
+=head2 my ($year,$month,$day) = caldate_easter($year)
+
+Returns the full date of Easter Sunday for the given year.
+
+=cut
+
+sub caldate_easter
+{
+    my ($y) = (@_);
+    if ($y =~ /^\d+$/)
+    {
+	my ($month, $day);
+	my ($c,$t,$j,$n);
+	$c = int($y / 100) + 1;
+	$t = 210 - (int(($c * 3) / 4) % 210);
+	$j = $y % 19;
+	$n = 57 - ((14 + $j * 11 + int(($c * 8 + 5) / 25) + $t) % 30);
+	--$n if (($n == 56) && ($j > 10));
+	--$n if ($n == 57);
+	$n -= ((int((($y % 28) * 5) / 4) + $t + $n + 2) % 7);
+
+	if ($n < 32) { $month = 3; $day = $n; }
+	else { $month = 4; $day = $n - 31; }
+	return ($y, $month, $day);
+    }
+  else
+  {
+      _fail('Invalid year passed.');
+      return undef;
+  }
+  }
+
+=head2 my ($secs, $nano) = tai64n($time)
+
+Takes a 24 hex-digit number as input and returns the seconds and
+nanoseconds the time represents. Seconds are standard Unix style.
+
+=head2 my @time = tai64nlocal($time)
+
+Takes a 24 hex-digit number as input and returns the year, month, day,
+hour, min, sec and nanosecs that the number represents. All numbers are
+normalised (i.e. it will return 1998, not 98; and January is 1, not 0).
+
+=cut
+
+1;
+__END__
 #
 # ========================================================================
 #                                                Rest Of The Documentation
 
 =head1 AUTHOR
 
-Iain Truskett E<lt>spoon@cpan.orgE<gt> L<http://eh.org/~koschei/>
+Iain Truskett <spoon@cpan.org> L<http://eh.org/~koschei/>
 
-Please report any bugs to L<http://rt.cpan.org/> or email them
-(and/or suggestions to me directly at E<lt>spoon@cpan.orgE<gt>
+Please report any bugs, or post any suggestions, to either the mailing
+list at <cpan@dellah.anu.edu.au> (email
+<cpan-subscribe@dellah.anu.edu.au> to subscribe) or directly to the
+author at <spoon@cpan.org>
 
 =head1 COPYRIGHT
 
-XS and Perl code copyright (c) 2002 Iain Truskett. All rights reserved.
-This program is free software; you can redistribute it and/or modify it
-under the same terms as Perl itself.
+Copyright (c) 2002 Iain Truskett. All rights reserved. This program is
+free software; you can redistribute it and/or modify it under the same
+terms as Perl itself.
 
-C source files derived from F<qlogtools>, copyright 2000 Bruce Guenter.
-Those derived from libtai are public domain. Those from daemontools
-are copyright 2001 D J Bernstein.
+    $Id: TAI64.pm,v 1.7 2002/03/12 17:54:57 koschei Exp $
 
 =head1 ACKNOWLEDGEMENTS
 
-DJB for writing libtai and daemontools. Bruce Guenter for qlogtools.
+DJB for writing libtai.
 
 =head1 SEE ALSO
 
-See L<http://cr.yp.to/time.html>, L<http://untroubled.org/qlogtools/>
+See L<http://cr.yp.to/time.html>
 
 =cut

@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# $Id: makemaker,v 1.3 2002/05/13 02:24:03 iain Exp $
+# $Id: makemaker,v 1.2 2002/03/12 17:54:57 koschei Exp $
 use strict;
 use warnings;
 use constant DEBUG => 0;
@@ -22,8 +22,8 @@ my $vars = {
     module	=> $pkg,
     file	=> do {
 	my $f = $pkg;
-	$f =~ s/::/\//g;
-	"lib/$f.pm";
+	$f =~ s/^.*:://g;
+	"$f.pm";
     },
 };
 
@@ -130,17 +130,6 @@ WriteMakefile(
     'LIBS'              => [''],
     'DEFINE'            => '',
     'INC'               => '',
-    PM => {
-	'lib/Time/TAI64.pm' => '$(INST_LIBDIR)/TAI64.pm',
-	'lib/Time/TAI64/Caldate.pm' => '$(INST_LIBDIR)/TAI64/Caldate.pm',
-    },
-    XS	=> {
-	'TAI64.xs' => 'TAI64.c'
-    },
-    dist => {
-	CI	=> 'echo > /dev/null ',
-	RCS_LABEL    => 'cvs tag -R -F v$(VERSION_SYM) && echo',
-    },
     ($] >= 5.005 ?    ## Add these new keywords supported since 5.005
       (ABSTRACT_FROM => '[% file %]', # retrieve abstract from module
       AUTHOR     => '[% author %]') : ()),
