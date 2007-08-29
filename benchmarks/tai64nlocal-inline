@@ -1,0 +1,62 @@
+#!/usr/bin/perl -w
+use strict;
+use Inline "C";
+
+while (<>)
+{
+    if ($_ =~ /^\@([0-9a-f]{24})\s+(.*)$/o)
+    {
+	printf "%4d-%02d-%02d %02d:%02d:%02d.%09d %s\n", tai64nlocal($1), $2;
+    }
+    else
+    {
+	print;
+    }
+}
+
+__END__
+__C__
+
+void tai64nlocal(char *str)
+{
+		time_t secs;
+		unsigned long nanosecs;
+		unsigned long u;
+		struct tm *t;
+
+		char ch;
+		int i;
+
+		Inline_Stack_Vars;
+
+		secs = 0;
+		nanosecs = 0;
+		for (i = 0; i < 24; i++) {
+				ch = str[i];
+				if (ch == 0) break;
+				u = ch - '0';
+				if (u >= 10) {
+						u = ch - 'a';
+						if (u >= 6) break;
+						u += 10;
+				}
+				secs <<= 4;
+				secs += nanosecs >> 28;
+				nanosecs &= 0xfffffff;
+				nanosecs <<= 4;
+				nanosecs += u;
+		}
+		secs -= 4611686018427387914ULL;
+
+		t = localtime(&secs);
+
+		Inline_Stack_Reset;
+		Inline_Stack_Push(newSViv((int)(1900 + t->tm_year)));
+		Inline_Stack_Push(newSViv((int)(1 + t->tm_mon)));
+		Inline_Stack_Push(newSViv((int)(t->tm_mday)));
+		Inline_Stack_Push(newSViv((int)(t->tm_hour)));
+		Inline_Stack_Push(newSViv((int)(t->tm_min)));
+		Inline_Stack_Push(newSViv((int)(t->tm_sec)));
+		Inline_Stack_Push(newSVuv((unsigned int)nanosecs));
+		Inline_Stack_Done;
+}

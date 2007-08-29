@@ -1,0 +1,15 @@
+MANIFEST
+Makefile.PL
+README
+TAI64.pm
+TAI64.xs
+benchmarks/bmark
+benchmarks/tai64nlocal-inline
+benchmarks/tai64nlocal-perl
+benchmarks/tai64nlocal-xs
+benchmarks/testdata.bz2
+makemaker
+t/doc.t
+t/info.t
+t/read.t
+t/caldate.t

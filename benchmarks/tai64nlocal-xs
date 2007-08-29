@@ -1,0 +1,17 @@
+#!/usr/bin/perl -w
+use strict;
+use Time::TAI64;
+
+while (<>)
+{
+    if ($_ =~ /^\@([0-9a-f]{24})\s+(.*)$/o)
+    {
+	my ($time, $data) = ($1, $2);
+
+	printf "%4d-%02d-%02d %02d:%02d:%02d.%09d %s\n", tai64nlocal($time), $data;
+    }
+    else
+    {
+	print;
+    }
+}

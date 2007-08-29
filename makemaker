@@ -1,0 +1,209 @@
+#!/usr/bin/perl -w
+# $Id: makemaker,v 1.1 2002/03/11 05:39:36 koschei Exp $
+use strict;
+use warnings;
+use constant DEBUG => 0;
+use Data::Dumper;
+use Module::Info;
+use Test::More tests => 4;
+use Inline::Files;
+use Template;
+$|++;
+
+my $pkg = do {
+    chomp(my $pwd = `pwd`);
+    $pwd =~ s/.*\///;
+    $pwd =~ s/-/::/g;
+    $pwd;
+};
+
+my $vars = {
+    author	=> 'Iain Truskett <spoon@cpan.org>',
+    module	=> $pkg,
+    file	=> do {
+	my $f = $pkg;
+	$f =~ s/^.*:://g;
+	"$f.pm";
+    },
+};
+
+my $mod = Module::Info->new_from_file($vars->{file});
+
+$mod->name($pkg);
+my $name    = $mod->name;
+my $version = $mod->version;
+my $dir     = $mod->inc_dir;
+my $file    = $mod->file;
+my $is_core = $mod->is_core;
+
+# Only available in perl 5.6.1 and up.
+# These do compile the module.
+my @packages = $mod->packages_inside;
+my @used     = get_uncommon($mod);
+my @modused  = @used;
+my %subs     = $mod->subroutines;
+my %reqs;
+
+# Check details:
+is $name => $pkg, "Package matches";
+like $version => qr/^(\d\.)\d/, "Version is a version number";
+is $is_core => 0, "Module isn't core";
+
+# Check package usage:
+ok eq_set(\@packages => [ $pkg ]), "Package matches";
+
+# Check test scripts
+
+for my $testfiles (<t/*.t>)
+{
+    my $test = Module::Info->new_from_file($testfiles);
+    @used = (@used, get_uncommon($test));
+    my %used = map { $_,1 } @used;
+    @used = sort keys %used;
+}
+
+# Find requirement versions
+foreach my $modname (@used)
+{
+    my $usedmod = Module::Info->new_from_module($modname);
+    $reqs{$modname} = $usedmod->version || "0";
+}
+
+# ------------------------------------------------------------------------ Report (if DEBUG)
+
+warn Data::Dumper->Dump(
+    [ $mod, $name, $version, $dir, $file, $is_core,
+    \@packages, \@used, \%subs, \%reqs, $vars ],
+    [qw/ mod name version dir file is_core packages used subs reqs vars/]
+) if DEBUG;
+
+# ------------------------------------------------------------------------ Prepare Template
+{
+    $vars->{reqs} = \%reqs;
+    $vars->{used} = \@modused;
+
+    # create Template object
+    my $template = Template->new(
+	INTERPOLATE  => 0,
+	POST_CHOMP   => 1,
+    );
+
+    # Make files
+    print defined $template->process(\*MAKEFILE, $vars, "Makefile.PL") ? "Wrote Makefile.PL\n" : $template->error();
+    print defined $template->process(\*TESTDOC,  $vars, "t/doc.t"    ) ? "Wrote t/doc.t\n"     : $template->error();
+    print defined $template->process(\*TESTINFO, $vars, "t/info.t"   ) ? "Wrote t/info.t\n"    : $template->error();
+    # README
+    use Pod::Text;
+    my $parser = Pod::Text->new(sentence => 0, width => 72);
+    $parser->parse_from_file ($vars->{file}, 'README');
+    print "Wrote README\n";
+    #ok(defined $template->process(\*README,   $vars, "README"     ), $template->error());
+}
+
+# ------------------------------------------------------------------------ Subs
+
+sub get_uncommon
+{
+    my $mod = shift;
+    my @common   = qw/strict warnings vars/;
+    my %used = map { $_, 1 } $mod->modules_used;
+    delete @used{@common};
+    keys %used;
+}
+
+# ------------------------------------------------------------------------ Data
+
+__DATA__
+
+__MAKEFILE__
+use ExtUtils::MakeMaker;
+# See lib/ExtUtils/MakeMaker.pm for details of how to influence
+# the contents of the Makefile that is written.
+WriteMakefile(
+    NAME		=> '[% module %]',
+    VERSION_FROM	=> '[% file %]',
+    PREREQ_PM => {
+	[% FOR reqname = reqs.sort %]
+	'[% reqname %]' => [% reqs.$reqname %],
+	[% END %]
+    },
+    'LIBS'              => [''],
+    'DEFINE'            => '',
+    'INC'               => '',
+    ($] >= 5.005 ?    ## Add these new keywords supported since 5.005
+      (ABSTRACT_FROM => '[% file %]', # retrieve abstract from module
+      AUTHOR     => '[% author %]') : ()),
+);
+
+
+__TESTDOC__
+use strict;
+use Test::More tests => 1;
+my $pkg = '[% module %]';
+
+# Test documentation
+use Pod::Coverage;
+my $pc = Pod::Coverage->new(package => $pkg);
+my $c = $pc->coverage;
+if (defined $c and $c == 1)
+{
+    pass "POD Coverage Good";
+}
+elsif (not defined $c)
+{
+    fail "POD Coverage unknown: ".$pc->why_uncovered;
+}
+else
+{
+    fail "POD Coverage inadequate: ".(join ',',$pc->naked);
+}
+
+
+__TESTINFO__
+use Module::Info;
+use Test::More tests => 5;
+use strict;
+use warnings;
+
+my $pkg = '[% module %]';
+
+my $mod = Module::Info->new_from_module($pkg);
+
+my $name    = $mod->name;
+my $version = $mod->version;
+my $dir     = $mod->inc_dir;
+my $file    = $mod->file;
+my $is_core = $mod->is_core;
+
+# Only available in perl 5.6.1 and up.
+# These do compile the module.
+my @packages = $mod->packages_inside;
+my @used     = get_uncommon($mod);
+my %subs     = $mod->subroutines;
+
+# Check details:
+is $name => $pkg, "Package name matches";
+like $version => qr/^(?:\d+\.)+\d+$/, "Version is a version number";
+is $is_core => 0, "Module is correctly not in core";
+
+# Check package usage:
+ok eq_set(\@packages => [ $pkg ]), "Package matches";
+ok eq_set(\@used => [
+	[% FOR reqname = used.sort %]
+	'[% reqname %]',
+	[% END %]
+]), "Module requirements match";
+
+# See that the methods we have exist:
+#my @methods = qw/ _get_url_body new get_author _ua /;
+#my @exists = grep { exists $subs{"${pkg}::$_"} } @methods;
+#ok eq_array(\@exists => \@methods), "Methods all found";
+
+sub get_uncommon
+{
+    my $mod = shift;
+    my @common   = qw/strict warnings vars/;
+    my %used = map { $_, 1 } $mod->modules_used;
+    delete @used{@common};
+    keys %used;
+}
