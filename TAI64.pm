@@ -39,8 +39,11 @@ our @ISA = qw(Exporter DynaLoader);
 
 our %EXPORT_TAGS = ( );
 our @EXPORT_OK = ( );
-our @EXPORT = qw( caldate_scan caldate_fmt tai64n tai64nlocal );
-our ( $VERSION ) = '$Revision: 1.6 $ ' =~ /\$Revision:\s+([^\s]+)/;
+our @EXPORT = qw/
+    caldate_normalise caldate_easter caldate_scan caldate_fmt
+    caldate_mjd caldate_frommjd tai64n tai64nlocal
+/;
+our ( $VERSION ) = '$Revision: 1.7 $ ' =~ /\$Revision:\s+([^\s]+)/;
 our $ERROR;
 
 sub _fail
@@ -64,7 +67,7 @@ sub caldate_fmt
 {
     my ($year,$month,$day) = (ref($_[0]) =~ /^ARRAY$|Caldate/) ? @{$_[0]} : (@_);
     $ERROR = '';
-    for ($year, $month, $year)
+    for ($year, $month, $day)
     {
 	_fail("Invalid date") unless /^-?\d+$/;
     }
@@ -84,10 +87,158 @@ Time::TAI64::Caldate object).
 sub caldate_scan
 {
     my $str = $_[0];
-    return 0 unless defined $str and length $str;
-    return 0 unless $str =~ /^(-?\d+)-0*(\d+)-0*(\d+)\b/;
-    return wantarray ? ($1,$2,$3) : (bless [$1, $2, $3], 'Time::TAI64::Caldate');
+    $ERROR = '';
+    if (defined $str and length $str and $str =~ /^(-?\d+)-0*(\d+)-0*(\d+)\b/)
+    {
+	return wantarray ? ($1,$2,$3) : (bless [$1, $2, $3], 'Time::TAI64::Caldate');
+    }
+    else
+    {
+	_fail("String does not have ISO date at start");
+	return 0;
+    }
 }
+
+=head2 my $mjd = caldate_mjd($year, $month, $day)
+
+Returns the Modified Julian Day for the given date.
+
+=cut
+
+sub caldate_mjd
+{
+    my ($year,$month,$day) = (ref($_[0]) =~ /^ARRAY$|Caldate/) ? @{$_[0]} : (@_);
+    $ERROR = '';
+    for ($year, $month, $day)
+    {
+	_fail("Invalid date") unless /^-?\d+$/;
+    }
+    return undef if defined $ERROR and length $ERROR;
+    # Valid stuff we can work with:
+    my $a = int((14-$month)/12);
+    my $y = $year +4800 - $a;
+    my $m = $month + 12*$a -3;
+    my $d = $day + int((153*$m+2)/5) + (365*$y)+int($y/4)+int($y/400)-int($y/100)-32045;
+    $d -= 2_400_001;
+    return $d;
+}
+
+=head2 my ($year, $month, $day) = caldate_frommjd($mjd)
+
+Returns the year, month, day triple fo the given Modified Julian Day.
+
+=cut
+
+sub caldate_frommjd
+{
+    my $mjd = shift;
+    if ($mjd =~ /^\d+$/)
+    {
+	my ($year, $month, $yday);
+	my $day = $mjd;
+	$year = int($day / 146097);
+	$day %= 146097;
+	$day += 678881;
+	while ($day >= 146097)
+	{
+	    $day -= 146097;
+	    $year++;
+	}
+	$year *= 4;
+	if ($day == 146096)
+	{
+	    $year += 3;
+	    $day = 36524;
+	}
+	else
+	{
+	    $year += int($day / 36524);
+	    $day %= 36524;
+	}
+	$year *= 25;
+	$year += int($day / 1461);
+	$day %= 1461;
+	$year *= 4;
+
+	$yday = ($day < 305);
+	if ($day == 1460)
+	{
+	    $year += 3;
+	    $day = 365;
+	}
+	else
+	{
+	    $year += int($day / 365);
+	    $day %= 365;
+	}
+	$yday += $day;
+
+	$day *= 10;
+	$month = int(($day + 5) / 306);
+	$day = ($day + 5) % 306;
+	$day = int($day / 10);
+	if ($month >= 10)
+	{
+	    $yday -= 306;
+	    ++$year;
+	    $month -= 10;
+	}
+	else
+	{
+	    $yday += 59;
+	    $month += 2;
+	}
+	return ($year, $month+1, $day+1);
+    }
+    else
+    {
+	_fail('Invalid modified Juloian Day');
+	return undef;
+    }
+}
+
+=head2 ($year, $month, $day) = caldate_normalise($year, $month, $day)
+
+Normalises the values of year, month and day so that they are within their accepted ranges.
+
+=cut
+
+sub caldate_normalise
+{
+    caldate_frommjd(caldate_mjd(@_));
+}
+
+=head2 my ($year,$month,$day) = caldate_easter($year)
+
+Returns the full date of Easter Sunday for the given year.
+
+=cut
+
+sub caldate_easter
+{
+    my ($y) = (@_);
+    if ($y =~ /^\d+$/)
+    {
+	my ($month, $day);
+	my ($c,$t,$j,$n);
+	$c = int($y / 100) + 1;
+	$t = 210 - (int(($c * 3) / 4) % 210);
+	$j = $y % 19;
+	$n = 57 - ((14 + $j * 11 + int(($c * 8 + 5) / 25) + $t) % 30);
+	--$n if (($n == 56) && ($j > 10));
+	--$n if ($n == 57);
+	$n -= ((int((($y % 28) * 5) / 4) + $t + $n + 2) % 7);
+
+	if ($n < 32) { $month = 3; $day = $n; }
+	else { $month = 4; $day = $n - 31; }
+	return ($y, $month, $day);
+    }
+  else
+  {
+      _fail('Invalid year passed.');
+      return undef;
+  }
+  }
 
 =head2 my ($secs, $nano) = tai64n($time)
 
@@ -123,7 +274,7 @@ Copyright (c) 2002 Iain Truskett. All rights reserved. This program is
 free software; you can redistribute it and/or modify it under the same
 terms as Perl itself.
 
-    $Id: TAI64.pm,v 1.6 2002/03/11 17:11:19 koschei Exp $
+    $Id: TAI64.pm,v 1.7 2002/03/12 17:54:57 koschei Exp $
 
 =head1 ACKNOWLEDGEMENTS
 

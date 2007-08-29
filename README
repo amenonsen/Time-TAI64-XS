@@ -33,6 +33,20 @@ FUNCTIONS
     used within a scalar context, it returns an arrayref of the elements
     (as a Time::TAI64::Caldate object).
 
+  my $mjd = caldate_mjd($year, $month, $day)
+    Returns the Modified Julian Day for the given date.
+
+  my ($year, $month, $day) = caldate_frommjd($mjd)
+    Returns the year, month, day triple fo the given Modified Julian
+    Day.
+
+  ($year, $month, $day) = caldate_normalise($year, $month, $day)
+    Normalises the values of year, month and day so that they are within
+    their accepted ranges.
+
+  my ($year,$month,$day) = caldate_easter($year)
+    Returns the full date of Easter Sunday for the given year.
+
   my ($secs, $nano) = tai64n($time)
     Takes a 24 hex-digit number as input and returns the seconds and
     nanoseconds the time represents. Seconds are standard Unix style.
@@ -56,7 +70,7 @@ COPYRIGHT
     is free software; you can redistribute it and/or modify it under the
     same terms as Perl itself.
 
-        $Id: TAI64.pm,v 1.6 2002/03/11 17:11:19 koschei Exp $
+        $Id: TAI64.pm,v 1.7 2002/03/12 17:54:57 koschei Exp $
 
 ACKNOWLEDGEMENTS
     DJB for writing libtai.
